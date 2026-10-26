@@ -235,10 +235,10 @@ func captureFrame(_ request: [String: Any]) throws -> [String: Any] {
   // of a new capture session per frame, which made the host's own cursor lag. If the stream can't
   // run, fall back to a one-off screenshot.
   let encoded: EncodedFrame
-  if let frame = try? liveCapture.frame(display: scDisplay, width: width, height: height, quality: quality) {
+  if let frame = liveCapture.frame(display: scDisplay, pixelWidth: display.pixelWidth, pixelHeight: display.pixelHeight,
+                                   width: width, quality: quality, wake: (request["wake"] as? Bool) ?? false) {
     encoded = frame
   } else {
-    liveCapture.stop()
     let config = SCStreamConfiguration()
     config.width = width
     config.height = height
@@ -281,55 +281,88 @@ struct EncodedFrame {
 /// One ScreenCaptureKit stream for the display being viewed. Frame requests take its latest frame;
 /// a still screen produces no new frames, so it costs no capture or encoding work. The stream stops
 /// after a while without requests. Lifecycle calls run on the `work` queue; frames arrive on `queue`.
+///
+/// `frame` returns nil when the stream should not serve a request, and the caller takes a one-off
+/// screenshot instead: after a stream failure (for 30 s), or for a second viewer on another display
+/// while the stream's display is still being watched.
 final class LiveCapture: NSObject, SCStreamOutput, SCStreamDelegate {
   private let queue = DispatchQueue(label: "paseo-screen-stream")
+  // Guarded by `lock`, because the stream queue reads and writes them.
   private let lock = NSLock()
+  private var activeStream: SCStream?
+  private var latest: CVPixelBuffer?
+  private var sequence = 0
+  // Only touched on the `work` queue.
   private var stream: SCStream?
   private var displayID: CGDirectDisplayID = 0
   private var size = (width: 0, height: 0)
-  private var latest: CVPixelBuffer?
-  private var sequence = 0
-  private var cache: (sequence: Int, quality: Double, frame: EncodedFrame)?
-  private var lastRequest = Date()
+  private var cache: (sequence: Int, width: Int, quality: Double, frame: EncodedFrame)?
+  private var lastRequestByDisplay: [CGDirectDisplayID: Date] = [:]
+  private var recentWidths: [(width: Int, at: Date)] = []
   private var idleTimer: DispatchSourceTimer?
+  private var failedAt: Date?
+  private var lockedState: Bool?
 
-  func frame(display: SCDisplay, width: Int, height: Int, quality: Double) throws -> EncodedFrame {
-    lastRequest = Date()
-    try ensureStream(display: display, width: width, height: height)
-    // The first frame of a new or resized stream takes a moment.
-    var waited = 0
-    while currentSequence() == 0 && waited < 30 {
-      usleep(50_000)
-      waited += 1
+  func frame(display: SCDisplay, pixelWidth: Int, pixelHeight: Int, width: Int, quality: Double, wake: Bool) -> EncodedFrame? {
+    let now = Date()
+    if let failedAt, now.timeIntervalSince(failedAt) < 30 { return nil }
+    if stream != nil, displayID != display.displayID,
+       let watched = lastRequestByDisplay[displayID], now.timeIntervalSince(watched) < 2 {
+      return nil
     }
-    lock.lock()
-    let buffer = latest
-    let current = sequence
-    lock.unlock()
-    guard let buffer else { throw HelperError("the capture stream produced no frame") }
-    if let cache, cache.sequence == current, cache.quality == quality { return cache.frame }
-    var image: CGImage?
-    VTCreateCGImageFromCVPixelBuffer(buffer, options: nil, imageOut: &image)
-    guard let image else { throw HelperError("could not read the captured frame") }
-    let data = try jpeg(image, quality: quality)
-    let frame = EncodedFrame(data: data, hash: fnv1a(data), width: image.width, height: image.height)
-    cache = (current, quality, frame)
-    return frame
+    // Locking, unlocking and waking can leave a stream running but silent; start a fresh one.
+    let locked = screenLocked()
+    if wake || (lockedState != nil && lockedState != locked) { stop() }
+    lockedState = locked
+    lastRequestByDisplay[display.displayID] = now
+    // Viewers of one display share the stream at the largest size any of them asked for recently.
+    recentWidths = recentWidths.filter { now.timeIntervalSince($0.at) < 5 } + [(width, now)]
+    let streamWidth = max(width, recentWidths.map { $0.width }.max() ?? width)
+    let streamHeight = max(1, Int((Double(pixelHeight) * Double(streamWidth) / Double(pixelWidth)).rounded()))
+    do {
+      try ensureStream(display: display, width: streamWidth, height: streamHeight)
+      // The first frame of a new or resized stream takes a moment.
+      var waited = 0
+      while currentSequence() == 0 && waited < 30 {
+        usleep(50_000)
+        waited += 1
+      }
+      lock.lock()
+      let buffer = latest
+      let current = sequence
+      lock.unlock()
+      guard let buffer else { throw HelperError("the capture stream produced no frame") }
+      if let cache, cache.sequence == current, cache.width == width, cache.quality == quality { return cache.frame }
+      var captured: CGImage?
+      VTCreateCGImageFromCVPixelBuffer(buffer, options: nil, imageOut: &captured)
+      guard var image = captured else { throw HelperError("could not read the captured frame") }
+      if image.width > width, let smaller = scaled(image, toWidth: width) { image = smaller }
+      let data = try jpeg(image, quality: quality)
+      let frame = EncodedFrame(data: data, hash: fnv1a(data), width: image.width, height: image.height)
+      cache = (current, width, quality, frame)
+      return frame
+    } catch {
+      FileHandle.standardError.write(Data("capture stream failed; using screenshots for 30 s: \(error)\n".utf8))
+      failedAt = now
+      stop()
+      return nil
+    }
   }
 
   func stop() {
     idleTimer?.cancel()
     idleTimer = nil
+    lock.lock()
+    activeStream = nil
+    latest = nil
+    sequence = 0
+    lock.unlock()
+    cache = nil
     guard let stream else { return }
     self.stream = nil
     let semaphore = DispatchSemaphore(value: 0)
     stream.stopCapture { _ in semaphore.signal() }
     _ = semaphore.wait(timeout: .now() + 2)
-    lock.lock()
-    latest = nil
-    sequence = 0
-    lock.unlock()
-    cache = nil
   }
 
   private func currentSequence() -> Int {
@@ -350,10 +383,20 @@ final class LiveCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     config.queueDepth = 4
     let stream = SCStream(filter: SCContentFilter(display: display, excludingWindows: []), configuration: config, delegate: self)
     try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
-    let _: Bool = try waitFor { done in
-      stream.startCapture { error in
-        if let error { done(.failure(error)) } else { done(.success(true)) }
+    lock.lock()
+    activeStream = stream
+    lock.unlock()
+    do {
+      let _: Bool = try waitFor { done in
+        stream.startCapture { error in
+          if let error { done(.failure(error)) } else { done(.success(true)) }
+        }
       }
+    } catch {
+      lock.lock()
+      activeStream = nil
+      lock.unlock()
+      throw error
     }
     self.stream = stream
     displayID = display.displayID
@@ -361,13 +404,15 @@ final class LiveCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     startIdleTimer()
   }
 
-  /// Stops the stream once nobody has asked for a frame for 10 s, so an unwatched host does no capture work.
+  /// Stops the stream once nobody has asked for a frame of its display for 10 s, so an unwatched host
+  /// does no capture work.
   private func startIdleTimer() {
     let timer = DispatchSource.makeTimerSource(queue: work)
     timer.schedule(deadline: .now() + 5, repeating: 5)
     timer.setEventHandler { [weak self] in
-      guard let self, Date().timeIntervalSince(self.lastRequest) > 10 else { return }
-      self.stop()
+      guard let self else { return }
+      let last = self.lastRequestByDisplay[self.displayID] ?? .distantPast
+      if Date().timeIntervalSince(last) > 10 { self.stop() }
     }
     timer.resume()
     idleTimer = timer
@@ -380,8 +425,11 @@ final class LiveCapture: NSObject, SCStreamOutput, SCStreamDelegate {
           SCFrameStatus(rawValue: rawStatus) == .complete,
           let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
     lock.lock()
-    latest = buffer
-    sequence += 1
+    // A late frame from a stream that has since been replaced belongs to another display or size.
+    if stream === activeStream {
+      latest = buffer
+      sequence += 1
+    }
     lock.unlock()
   }
 
@@ -389,16 +437,20 @@ final class LiveCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     // Display sleep, a display change or a permission change ends the stream; the next request restarts it.
     work.async { [weak self] in
       guard let self, self.stream === stream else { return }
-      self.stream = nil
-      self.idleTimer?.cancel()
-      self.idleTimer = nil
-      self.lock.lock()
-      self.latest = nil
-      self.sequence = 0
-      self.lock.unlock()
-      self.cache = nil
+      self.stop()
     }
   }
+}
+
+/// Draws `image` at `width` pixels wide, keeping its aspect ratio.
+func scaled(_ image: CGImage, toWidth width: Int) -> CGImage? {
+  let height = max(1, Int((Double(image.height) * Double(width) / Double(image.width)).rounded()))
+  guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
+  context.interpolationQuality = .medium
+  context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+  return context.makeImage()
 }
 
 let liveCapture = LiveCapture()
