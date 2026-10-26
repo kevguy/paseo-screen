@@ -20,8 +20,10 @@ function ScreenItem({ currentScreen, openScreen, host, theme }: PluginSidebarIte
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={label}
-            disabled={control.changing}
-            onPress={() => control.setPaused(!control.paused)}
+            // Not `disabled`: a disabled button passes the press to the row, which would open the viewer.
+            onPress={() => {
+              if (!control.changing) control.setPaused(!control.paused);
+            }}
             style={{ paddingHorizontal: 8, paddingVertical: 4 }}
           >
             <Text style={{ color: control.paused ? theme.colors.statusWarning : theme.colors.foregroundMuted, fontSize: 13 }}>

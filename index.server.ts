@@ -57,7 +57,14 @@ export default function contribute(server: PluginServerContext) {
     if (await readControlPaused()) throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
   }
   server.handle(inputRpc, async (request) => {
-    await assertControlAllowed();
+    if (await readControlPaused()) {
+      // Releases still go through, so a pause that lands mid-drag or mid-keypress cannot leave the
+      // host's mouse button or a key held down.
+      const releases = request.events.filter((event) => event.type === "up" || (event.type === "key" && event.down === false));
+      if (releases.length > 0) await (await inputHelper()).request("input", { ...request, events: releases });
+      if (releases.length === request.events.length) return { handled: releases.length };
+      throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
+    }
     return (await inputHelper()).request("input", request);
   });
   // Read on the input helper so it runs after any copy shortcut queued before it.

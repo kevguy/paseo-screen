@@ -79,6 +79,10 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
   // After a drag carries the pointer onto another display, show that display.
   const send = useInputQueue(displayId, setInputError, chooseDisplay);
   const hostControl = useControlPause(host.id);
+  // A "paused" input error is stale once control resumes.
+  useEffect(() => {
+    if (!hostControl.paused) setInputError(null);
+  }, [hostControl.paused]);
   const controlling = control && lastGood.current?.accessibility === true && !hostControl.paused;
 
   const clipboard = useHostClipboard(controlling);

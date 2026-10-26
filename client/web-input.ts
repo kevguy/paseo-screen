@@ -19,7 +19,7 @@ interface DomEventTarget {
   removeEventListener(type: string, listener: (event: never) => void): void;
 }
 interface DomElement extends DomEventTarget {
-  ownerDocument: DomEventTarget;
+  ownerDocument: DomEventTarget & { activeElement?: unknown };
   tabIndex: number;
   style: Record<string, string>;
   focus(): void;
@@ -82,6 +82,7 @@ export function useWebInput(
     const onMouseDown = (event: DomMouseEvent) => {
       event.preventDefault();
       element.focus();
+      focused = true;
       pressed += 1;
       lastButton = button(event);
       lastPoint = at(event);
@@ -96,7 +97,8 @@ export function useWebInput(
     // Hovering only moves the host's pointer once the picture has focus (after a click into it), so
     // passing this client's pointer over the viewer does not pull the host's cursor away from someone
     // using the host's own mouse or trackpad. Clicks, drags and scrolling always go through.
-    let focused = false;
+    // Re-subscribing (for example after control resumes) keeps the focus the picture already has.
+    let focused = element.ownerDocument.activeElement === element;
     const onFocus = () => {
       focused = true;
     };
