@@ -134,7 +134,7 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
         </View>
       ) : null}
       {windowsHost ? (
-        <Text style={styles.meta}>Windows hosts are experimental and not yet tested. Please report anything that misbehaves.</Text>
+        <Text style={styles.meta}>Windows hosts are experimental. Please report anything that misbehaves.</Text>
       ) : null}
       {frames.locked && !frames.asleep ? (
         <View style={styles.banner}>

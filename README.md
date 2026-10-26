@@ -25,7 +25,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
 
 - A Mac host running macOS 14 or later, with the Xcode command line tools (`xcode-select --install`). The native helper is compiled with `swiftc` the first time it is used.
 - Or a Linux host with a desktop session, either Wayland (GNOME, KDE and other desktops with xdg-desktop-portal's RemoteDesktop and ScreenCast portals) or X11, with a C compiler and the development packages for that session (see Install, step 3). The native helper is compiled with `cc` the first time it is used.
-- Or, **experimentally**, a Windows 10 or 11 host. The native helper is compiled with the .NET Framework's `csc.exe`, which Windows includes, so nothing needs installing. Windows support is built and reviewed but not yet tested on a real Windows host.
+- Or, **experimentally**, a Windows 10 or 11 host. The native helper is compiled with the .NET Framework's `csc.exe`, which Windows includes, so nothing needs installing. Windows support has been tested on one Windows PC so far.
 - Paseo 0.12 or later, with plugins enabled on the host.
 - Any Paseo client paired with that host.
 
@@ -72,7 +72,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
      ```
 
      Linux hosts on X11 need no permissions. Paseo has to run inside the desktop session, which is the case for the Paseo desktop app, so the helper can reach the display. If the daemon runs some other way, see [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
-   - **Windows (experimental):** nothing to prepare. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
+   - **Windows (experimental):** nothing to install; the plugin compiles its helper with Windows' built-in compiler. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Set the PC not to sleep while plugged in (see [Keep the host awake](#keep-the-host-awake)), then leave it plugged in; closing a laptop's lid is fine as long as Windows is set not to sleep when the lid closes. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
 4. In any Paseo client, open **Screen · _host name_** from the sidebar, or search "host screen" in the command center.
 
 If a permission is missing on a Mac, the viewer says which one and offers a button that shows the macOS prompt on the host. Someone has to be at the host Mac to approve it once.
@@ -188,9 +188,19 @@ Paseo client (laptop, web, phone)                    Host (Paseo daemon)
 
 Anyone paired with the host can see and control its screen while the plugin is enabled. That is the same trust that pairing already grants for running agents and terminals on that machine. Traffic stays inside the Paseo connection; the plugin opens no ports and talks to no other service. View-only mode is a setting in each viewer, not a lock on the host: any paired client can still send input. Turn the plugin off with `paseo plugin disable paseo-screen` when you don't need it.
 
+## Keep the host awake
+
+When the host computer goes to sleep, its Paseo daemon goes to sleep with it, so the viewer loses its connection and nothing can wake the computer through Paseo. A screen that turns off or locks is fine; the computer itself sleeping is not. Keep the host plugged in and set it not to sleep:
+
+- **Windows:** Settings → System → Power & battery (Power on desktops) → Screen, sleep & hibernate timeouts → set **When plugged in, put my device to sleep after** to **Never**. On Windows 10 it is Settings → System → Power & sleep → **Sleep**, **When plugged in, PC goes to sleep after** → **Never**. Don't choose **Sleep** from the Start menu's power button. For a laptop you close, set Control Panel → Power Options → **Choose what closing the lid does** → **When I close the lid** (Plugged in) to **Do nothing**.
+- **macOS:** on a laptop, System Settings → Battery → Options → turn on **Prevent automatic sleeping on power adapter when the display is off**. A closed MacBook sleeps unless an external display, keyboard and power are connected.
+- **Linux (GNOME):** Settings → Power → turn off **Automatic Suspend** when plugged in. Other desktops have a similar setting.
+
+Waking a sleeping computer remotely needs Wake-on-LAN: a wired network connection, hardware and firmware that support it, and another always-on device on the same network to send the wake signal. That is outside what the plugin can do.
+
 ## Limitations
 
-- Mac hosts and Linux hosts on Wayland or X11 are supported. Windows hosts are experimental and untested. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
+- Mac hosts and Linux hosts on Wayland or X11 are supported. Windows hosts are experimental and have been tested on one PC so far. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
 - On GNOME Wayland, locking the screen ends sharing, so a locked host has to be unlocked at the machine. Sharing resumes once it is unlocked. See [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
 - On Wayland, characters the host's keyboard layout lacks (✓, emoji, é on a US layout) cannot be typed; the desktop drops them. Paste them instead (⌘V or Ctrl+V), which works for any text.
 - On GNOME with display scaling, the pointer is placed with an absolute move near the corner followed by a relative move, because GNOME reads the portal's absolute positions as physical pixels. Other Wayland desktops get plain absolute moves.
@@ -198,6 +208,7 @@ Anyone paired with the host can see and control its screen while the plugin is e
 - On Linux X11, characters outside Latin-1 (such as Cyrillic, Greek or €), and any character the host's keyboard layout lacks, are typed by briefly remapping a spare key. That takes about 30 ms per character, so paste long non-Latin text instead of typing it. Pasting with Ctrl+V does not work in terminals; use Ctrl+Shift+V (⌘⇧V from a Mac).
 - It is frame polling, not video. Fast motion looks choppy, and the frame rate depends on your link to the Paseo relay.
 - Granting the two macOS permissions needs someone physically at a Mac host once.
+- A sleeping computer is offline: Paseo sleeps with it, so no client can reach or wake it until someone wakes it at the machine. See [Keep the host awake](#keep-the-host-awake).
 - The plugin doesn't stop the host from sleeping or locking on its own schedule. Opening the viewer, using the mouse or keyboard on the picture, or the **Wake display** button wakes the display, and you unlock it by typing your password. Touch ID isn't available remotely.
 - Shortcuts your own computer or the Paseo app handle first (⌘Tab, ⌘Space, ⌘W, ⌘Q) need the key bar buttons.
 - Clipboard sync is text only, and only on desktop and web clients.
