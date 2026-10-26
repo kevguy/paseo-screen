@@ -9,13 +9,14 @@ It was built for the moments when an agent on a remote machine needs a human: wa
 ## Features
 
 - Live view of the host's screen, sized to your viewer, at roughly 5 to 15 frames per second depending on the network.
-- Mouse and keyboard control: click, double-click, right-click, drag, scroll and type.
+- Mouse and keyboard control: click, double-click, right-click, drag, scroll and type. The host's own mouse, trackpad and keyboard keep working alongside it, and on desktop clients the host's pointer only follows yours once you click into the picture.
 - A key bar for shortcuts your own computer keeps for itself: ⌘Tab, ⌘Space, ⌘W, ⌘Q, switching Spaces (⌃←/⌃→), Mission Control and App windows on a Mac host; Super+Tab, Activities, Apps, Ctrl+W, Alt+F4 and switching workspaces on a Linux host.
 - Two-way text clipboard on desktop and web clients. ⌘V pastes your clipboard on the host, and ⌘C on the host copies back to you. With a Linux host, use Ctrl from a Windows or Linux client; a Mac client's ⌘ works there too.
 - Multiple displays: each one is listed by name, the last choice is remembered, and a drag that leaves the picture continues onto the neighbouring display.
 - Phones: tap to click, long-press to right-click, pinch to zoom, drag to pan, and a Rotate button that turns the picture sideways.
 - Wakes the host's display when you open the viewer, and shows the lock screen if the host is locked so you can type your password to unlock it (except on GNOME Wayland, which stops sharing while locked).
-- View-only mode, and Fast / Balanced / Sharp quality presets.
+- **Pause remote control** for the whole host from the pause button on its **Screen** row in Paseo's sidebar, or from any viewer. While paused, viewers can watch but not click, type or use the clipboard; the pause is kept across restarts until someone resumes it.
+- A per-viewer View-only switch, and Fast / Balanced / Sharp quality presets.
 
 ![Viewing the host's second display](images/desktop-viewer.jpg)
 
@@ -186,7 +187,7 @@ Paseo client (laptop, web, phone)                    Host (Paseo daemon)
 
 ## Security
 
-Anyone paired with the host can see and control its screen while the plugin is enabled. That is the same trust that pairing already grants for running agents and terminals on that machine. Traffic stays inside the Paseo connection; the plugin opens no ports and talks to no other service. View-only mode is a setting in each viewer, not a lock on the host: any paired client can still send input. Turn the plugin off with `paseo plugin disable paseo-screen` when you don't need it.
+Anyone paired with the host can see and control its screen while the plugin is enabled. That is the same trust that pairing already grants for running agents and terminals on that machine. Traffic stays inside the Paseo connection; the plugin opens no ports and talks to no other service. View-only mode is a setting in each viewer, not a lock on the host: any paired client can still send input. **Pause remote control** does apply to the whole host, but any paired client can also resume it; Paseo does not tell the plugin which client is sitting at the host. Turn the plugin off with `paseo plugin disable paseo-screen` when you don't need it.
 
 ## Keep the host awake
 

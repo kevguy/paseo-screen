@@ -1,15 +1,35 @@
 import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
 import { SidebarRow } from "@getpaseo/plugin/client/ui";
+import { Pressable, Text } from "react-native";
+import { useControlPause } from "./client/control";
 import { RemoteScreen } from "./client/screen";
 
-function ScreenItem({ currentScreen, openScreen, host }: PluginSidebarItemProps) {
+function ScreenItem({ currentScreen, openScreen, host, theme }: PluginSidebarItemProps) {
+  // The pause button lets someone at the host (or anyone paired) stop remote input without opening the viewer.
+  const control = useControlPause(host.id);
+  const label = control.paused ? "Resume remote control" : "Pause remote control";
   // Every host with the plugin installed adds its own row, so name the host.
   return (
     <SidebarRow
       icon="Monitor"
-      label={`Screen · ${host.label}`}
+      label={`Screen · ${host.label}${control.paused ? " (control paused)" : ""}`}
       active={currentScreen?.screenId === "screen"}
       onPress={() => openScreen({ screenId: "screen" })}
+      trailing={
+        control.known ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={control.changing}
+            onPress={() => control.setPaused(!control.paused)}
+            style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+          >
+            <Text style={{ color: control.paused ? theme.colors.statusWarning : theme.colors.foregroundMuted, fontSize: 13 }}>
+              {control.paused ? "▶" : "⏸"}
+            </Text>
+          </Pressable>
+        ) : null
+      }
     />
   );
 }

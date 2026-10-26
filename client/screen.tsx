@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, Text, TextInput, View, type LayoutChangeEvent } from "react-native";
 import { chooseDisplayRpc, requestPermissionsRpc, statusRpc, type ScreenDisplay, type ScreenInputEvent, type ScreenModifier, type ScreenStatus } from "../shared/rpc";
 import { readLocalClipboard, useHostClipboard } from "./clipboard";
+import { useControlPause } from "./control";
 import { FrameImage } from "./frame-image";
 import { fitContent } from "./geometry";
 import { isAppleClient, KEY, keyMapping } from "./keys";
@@ -77,7 +78,8 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
   }, [frameAspect]);
   // After a drag carries the pointer onto another display, show that display.
   const send = useInputQueue(displayId, setInputError, chooseDisplay);
-  const controlling = control && lastGood.current?.accessibility === true;
+  const hostControl = useControlPause(host.id);
+  const controlling = control && lastGood.current?.accessibility === true && !hostControl.paused;
 
   const clipboard = useHostClipboard(controlling);
   const pasteOnHost = useCallback(
@@ -110,6 +112,10 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
         <Text style={styles.hostLabel} numberOfLines={1}>{host.label}</Text>
         <ToolButton styles={styles} label={paused ? "Resume" : "Pause"} onPress={() => setPaused(!paused)} />
         <ToolButton styles={styles} label={control ? "Control: on" : "View only"} active={control} onPress={() => setControl(!control)} />
+        {/* Host-wide, unlike View only: stops input from every viewer until someone resumes it. */}
+        {hostControl.known && !hostControl.paused ? (
+          <ToolButton styles={styles} label="⏸ Pause control" onPress={() => hostControl.setPaused(true)} />
+        ) : null}
         <ToolButton styles={styles} label={QUALITIES[qualityIndex]!.label} onPress={() => setQualityIndex((qualityIndex + 1) % QUALITIES.length)} />
         {!isWeb ? <ToolButton styles={styles} label="Rotate" active={rotated} onPress={() => setRotated(!rotated)} /> : null}
         {displays.length > 1 ? (
@@ -131,6 +137,12 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
         <View style={styles.banner}>
           <Text style={styles.bannerText}>The host's display is asleep.</Text>
           <ToolButton styles={styles} label="Wake display" onPress={frames.wake} />
+        </View>
+      ) : null}
+      {hostControl.paused ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>Remote control is paused on this host. You can watch, but not click, type or use the clipboard.</Text>
+          <ToolButton styles={styles} label={hostControl.changing ? "Resuming…" : "▶ Resume control"} onPress={() => hostControl.setPaused(false)} />
         </View>
       ) : null}
       {windowsHost ? (

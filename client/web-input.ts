@@ -93,8 +93,18 @@ export function useWebInput(
       event.preventDefault();
       send({ type: "up", ...at(event, true), button: button(event), clickCount: Math.max(1, event.detail), modifiers: modifiersOf(event, mapping) });
     };
+    // Hovering only moves the host's pointer once the picture has focus (after a click into it), so
+    // passing this client's pointer over the viewer does not pull the host's cursor away from someone
+    // using the host's own mouse or trackpad. Clicks, drags and scrolling always go through.
+    let focused = false;
+    const onFocus = () => {
+      focused = true;
+    };
+    const onBlur = () => {
+      focused = false;
+    };
     const onElementMouseMove = (event: DomMouseEvent) => {
-      if (pressed === 0) send({ type: "move", ...at(event) });
+      if (pressed === 0 && focused) send({ type: "move", ...at(event) });
     };
     const onDocumentMouseMove = (event: DomMouseEvent) => {
       if (pressed === 0) return;
@@ -162,6 +172,8 @@ export function useWebInput(
       ["keydown", onKeyDown],
       ["keyup", onKeyUp],
       ["paste", onPaste],
+      ["focus", onFocus],
+      ["blur", onBlur],
     ];
     const documentListeners: [string, (event: never) => void][] = [
       ["mousemove", onDocumentMouseMove],

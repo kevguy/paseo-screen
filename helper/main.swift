@@ -259,7 +259,17 @@ func captureFrame(_ request: [String: Any]) throws -> [String: Any] {
 
 // MARK: - Input
 
-let eventSource = CGEventSource(stateID: .hidSystemState)
+/// By default macOS ignores the physical mouse and keyboard for 0.25 s after each posted event, so a
+/// stream of remote moves made the host's own trackpad and keyboard hard to use. Remote and local input
+/// now mix freely.
+let eventSource: CGEventSource? = {
+  let source = CGEventSource(stateID: .hidSystemState)
+  source?.localEventsSuppressionInterval = 0
+  let permitLocal: CGEventFilterMask = [.permitLocalMouseEvents, .permitLocalKeyboardEvents, .permitSystemDefinedEvents]
+  source?.setLocalEventsFilterDuringSuppressionState(permitLocal, state: .eventSuppressionStateSuppressionInterval)
+  source?.setLocalEventsFilterDuringSuppressionState(permitLocal, state: .eventSuppressionStateRemoteMouseDrag)
+  return source
+}()
 var pressedButton: CGMouseButton?
 
 func mouseButton(_ name: Any?) -> CGMouseButton {

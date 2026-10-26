@@ -1,7 +1,7 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { HelperProcess, linuxBackend, NO_SESSION } from "./server/helper";
-import { readPreferredDisplay, writePreferredDisplay } from "./server/preferences";
-import { chooseDisplayRpc, clipboardRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenStatus } from "./shared/rpc";
+import { readControlPaused, readPreferredDisplay, writeControlPaused, writePreferredDisplay } from "./server/preferences";
+import { chooseDisplayRpc, clipboardRpc, controlStateRpc, setControlPausedRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenStatus } from "./shared/rpc";
 
 export default function contribute(server: PluginServerContext) {
   const log = (message: string) => console.error(`[paseo-screen] ${message}`);
@@ -52,9 +52,24 @@ export default function contribute(server: PluginServerContext) {
   server.handle(statusRpc, () => readStatus("status"));
   server.handle(requestPermissionsRpc, () => readStatus("request"));
   server.handle(frameRpc, (request) => capture.request("frame", request));
-  server.handle(inputRpc, async (request) => (await inputHelper()).request("input", request));
+  /** Refuses remote input and clipboard access while control is paused on the host. */
+  async function assertControlAllowed(): Promise<void> {
+    if (await readControlPaused()) throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
+  }
+  server.handle(inputRpc, async (request) => {
+    await assertControlAllowed();
+    return (await inputHelper()).request("input", request);
+  });
   // Read on the input helper so it runs after any copy shortcut queued before it.
-  server.handle(clipboardRpc, async () => (await inputHelper()).request("clipboard"));
+  server.handle(clipboardRpc, async () => {
+    await assertControlAllowed();
+    return (await inputHelper()).request("clipboard");
+  });
+  server.handle(controlStateRpc, async () => ({ paused: await readControlPaused() }));
+  server.handle(setControlPausedRpc, async ({ paused }) => {
+    await writeControlPaused(paused);
+    return { paused: await readControlPaused() };
+  });
   server.handle(chooseDisplayRpc, async ({ display }) => {
     await writePreferredDisplay(display);
     return {};

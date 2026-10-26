@@ -141,6 +141,22 @@ export const clipboardRpc = defineRpc({
 });
 
 /** Remembers the display a viewer chose, so the next viewer opens on it. */
+/**
+ * Host-wide remote control pause. While paused, input and clipboard requests are refused and viewers
+ * can only watch. Reading this does not start the native helper, so the sidebar can poll it cheaply.
+ */
+export const controlStateRpc = defineRpc({
+  name: "screen.control-state",
+  input: z.object({}),
+  output: z.object({ paused: z.boolean() }),
+});
+
+export const setControlPausedRpc = defineRpc({
+  name: "screen.set-control-paused",
+  input: z.object({ paused: z.boolean() }),
+  output: z.object({ paused: z.boolean() }),
+});
+
 export const chooseDisplayRpc = defineRpc({
   name: "screen.choose-display",
   input: z.object({ display: z.number() }),
