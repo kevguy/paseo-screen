@@ -19,7 +19,7 @@ interface DomEventTarget {
   removeEventListener(type: string, listener: (event: never) => void): void;
 }
 interface DomElement extends DomEventTarget {
-  ownerDocument: DomEventTarget & { activeElement?: unknown };
+  ownerDocument: DomEventTarget & { activeElement?: unknown; hasFocus?(): boolean };
   tabIndex: number;
   style: Record<string, string>;
   focus(): void;
@@ -98,7 +98,7 @@ export function useWebInput(
     // passing this client's pointer over the viewer does not pull the host's cursor away from someone
     // using the host's own mouse or trackpad. Clicks, drags and scrolling always go through.
     // Re-subscribing (for example after control resumes) keeps the focus the picture already has.
-    let focused = element.ownerDocument.activeElement === element;
+    let focused = element.ownerDocument.activeElement === element && element.ownerDocument.hasFocus?.() !== false;
     const onFocus = () => {
       focused = true;
     };

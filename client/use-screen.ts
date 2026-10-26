@@ -148,7 +148,7 @@ export function useFrames(requested: boolean, displayId: number | undefined, qua
  */
 export function useInputQueue(
   displayId: number | undefined,
-  onError: (message: string) => void,
+  onError: (message: string | null) => void,
   /** Called when a drag ends on a different display than the one being viewed. */
   onPointerDisplay: (display: number) => void,
 ) {
@@ -176,6 +176,8 @@ export function useInputQueue(
         try {
           const requested = displayRef.current;
           const result = await inputRef.current({ display: requested, events });
+          // A batch that went through means any earlier error (such as "paused") no longer applies.
+          onErrorRef.current(null);
           const endedDrag = events.some((event) => event.type === "up");
           if (endedDrag && result.pointerDisplay !== undefined && result.pointerDisplay !== requested) {
             onPointerDisplayRef.current(result.pointerDisplay);

@@ -1,7 +1,7 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { HelperProcess, linuxBackend, NO_SESSION } from "./server/helper";
 import { readControlPaused, readPreferredDisplay, writeControlPaused, writePreferredDisplay } from "./server/preferences";
-import { chooseDisplayRpc, clipboardRpc, controlStateRpc, setControlPausedRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenStatus } from "./shared/rpc";
+import { chooseDisplayRpc, clipboardRpc, controlStateRpc, setControlPausedRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenInputEvent, type ScreenStatus } from "./shared/rpc";
 
 export default function contribute(server: PluginServerContext) {
   const log = (message: string) => console.error(`[paseo-screen] ${message}`);
@@ -56,16 +56,41 @@ export default function contribute(server: PluginServerContext) {
   async function assertControlAllowed(): Promise<void> {
     if (await readControlPaused()) throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
   }
+  // Mouse buttons and keys the host has been told are down. While paused, only their releases go
+  // through, so a pause mid-drag or mid-keypress cannot leave them held, and releases of presses the
+  // host never saw (which would still move its pointer) are dropped.
+  const held = new Set<string>();
+  const holdKey = (event: ScreenInputEvent): string | null =>
+    event.type === "down" || event.type === "up"
+      ? `button:${event.button}`
+      : event.type === "key" && event.down !== undefined
+        ? `key:${event.keyCode ?? event.char}`
+        : null;
+  const track = (events: ScreenInputEvent[]) => {
+    for (const event of events) {
+      const key = holdKey(event);
+      if (!key) continue;
+      if (event.type === "down" || (event.type === "key" && event.down === true)) held.add(key);
+      else held.delete(key);
+    }
+  };
   server.handle(inputRpc, async (request) => {
     if (await readControlPaused()) {
-      // Releases still go through, so a pause that lands mid-drag or mid-keypress cannot leave the
-      // host's mouse button or a key held down.
-      const releases = request.events.filter((event) => event.type === "up" || (event.type === "key" && event.down === false));
-      if (releases.length > 0) await (await inputHelper()).request("input", { ...request, events: releases });
+      const releases = request.events.filter((event) => {
+        const key = holdKey(event);
+        const release = event.type === "up" || (event.type === "key" && event.down === false);
+        return release && key !== null && held.has(key);
+      });
+      if (releases.length > 0) {
+        await (await inputHelper()).request("input", { ...request, events: releases });
+        track(releases);
+      }
       if (releases.length === request.events.length) return { handled: releases.length };
       throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
     }
-    return (await inputHelper()).request("input", request);
+    const result = await (await inputHelper()).request<{ handled: number; pointerDisplay?: number }>("input", request);
+    track(request.events);
+    return result;
   });
   // Read on the input helper so it runs after any copy shortcut queued before it.
   server.handle(clipboardRpc, async () => {
