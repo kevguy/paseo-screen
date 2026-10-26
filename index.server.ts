@@ -68,7 +68,7 @@ export default function contribute(server: PluginServerContext) {
 
 /** Why this host cannot share its screen, or null when it can. */
 async function unsupportedReason(): Promise<string | null> {
-  // Windows support is experimental: built and reviewed, not yet tested on a real Windows host.
+  // Windows support is experimental: tested on one PC so far.
   if (process.platform === "darwin" || process.platform === "win32") return null;
   if (process.platform !== "linux") return "Screen sharing is only available on macOS, Linux and Windows hosts.";
   // X11 sessions are read directly; Wayland sessions go through the desktop portals.

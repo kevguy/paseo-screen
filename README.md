@@ -72,7 +72,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
      ```
 
      Linux hosts on X11 need no permissions. Paseo has to run inside the desktop session, which is the case for the Paseo desktop app, so the helper can reach the display. If the daemon runs some other way, see [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
-   - **Windows (experimental):** nothing to install; the plugin compiles its helper with Windows' built-in compiler. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Set the PC not to sleep while plugged in (see [Keep the host awake](#keep-the-host-awake)), then leave it plugged in; closing a laptop's lid is fine as long as Windows is set not to sleep when the lid closes. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
+   - **Windows (experimental):** nothing to install; the plugin compiles its helper with Windows' built-in compiler. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Set the PC not to sleep while plugged in (see [Keep the host awake](#keep-the-host-awake)), then leave it plugged in; closing a laptop's lid should be fine as long as Windows is set not to sleep when the lid closes. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
 4. In any Paseo client, open **Screen · _host name_** from the sidebar, or search "host screen" in the command center.
 
 If a permission is missing on a Mac, the viewer says which one and offers a button that shows the macOS prompt on the host. Someone has to be at the host Mac to approve it once.
@@ -192,11 +192,11 @@ Anyone paired with the host can see and control its screen while the plugin is e
 
 When the host computer goes to sleep, its Paseo daemon goes to sleep with it, so the viewer loses its connection and nothing can wake the computer through Paseo. A screen that turns off or locks is fine; the computer itself sleeping is not. Keep the host plugged in and set it not to sleep:
 
-- **Windows:** Settings → System → Power & battery (Power on desktops) → Screen, sleep & hibernate timeouts → set **When plugged in, put my device to sleep after** to **Never**. On Windows 10 it is Settings → System → Power & sleep → **Sleep**, **When plugged in, PC goes to sleep after** → **Never**. Don't choose **Sleep** from the Start menu's power button. For a laptop you close, set Control Panel → Power Options → **Choose what closing the lid does** → **When I close the lid** (Plugged in) to **Do nothing**.
-- **macOS:** on a laptop, System Settings → Battery → Options → turn on **Prevent automatic sleeping on power adapter when the display is off**. A closed MacBook sleeps unless an external display, keyboard and power are connected.
-- **Linux (GNOME):** Settings → Power → turn off **Automatic Suspend** when plugged in. Other desktops have a similar setting.
+- **Windows:** Settings → System → Power & battery (Power on desktops) → the screen and sleep timeouts → set the **plugged in** sleep option to **Never**, and the plugged-in hibernate option too if Windows shows one. On Windows 10 it is Settings → System → Power & sleep → **Sleep** → **When plugged in, PC goes to sleep after** → **Never**. Don't choose **Sleep** from the Start menu's power button. For a laptop you close, set Control Panel → Power Options → **Choose what closing the lid does** → **When I close the lid** (Plugged in) to **Do nothing**.
+- **macOS:** on a laptop, System Settings → Battery → Options → turn on **Prevent automatic sleeping on power adapter when the display is off**. On a desktop Mac such as a Mac mini, System Settings → Energy → turn on **Prevent automatic sleeping when the display is off**. A closed MacBook sleeps unless it is on power with an external display connected (some models also want an external keyboard or mouse).
+- **Linux (GNOME):** Settings → Power → turn off **Automatic Suspend** when plugged in. Other desktops have a similar setting. Closing a laptop's lid usually still suspends it, so keep the lid open or change your desktop's lid setting.
 
-Waking a sleeping computer remotely needs Wake-on-LAN: a wired network connection, hardware and firmware that support it, and another always-on device on the same network to send the wake signal. That is outside what the plugin can do.
+Waking a sleeping computer remotely needs Wake-on-LAN: usually a wired network connection, hardware and firmware that support it, and another always-on device on the same network to send the wake signal. That is outside what the plugin can do.
 
 ## Limitations
 
