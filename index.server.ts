@@ -66,12 +66,19 @@ export default function contribute(server: PluginServerContext) {
       : event.type === "key" && event.down !== undefined
         ? `key:${event.keyCode ?? event.char}`
         : null;
-  const track = (events: ScreenInputEvent[]) => {
+  const isPress = (event: ScreenInputEvent) => event.type === "down" || (event.type === "key" && event.down === true);
+  // Presses count as held before the request, since a timed-out request may still reach the host;
+  // releases only clear them once the host has confirmed.
+  const trackPresses = (events: ScreenInputEvent[]) => {
     for (const event of events) {
       const key = holdKey(event);
-      if (!key) continue;
-      if (event.type === "down" || (event.type === "key" && event.down === true)) held.add(key);
-      else held.delete(key);
+      if (key && isPress(event)) held.add(key);
+    }
+  };
+  const trackReleases = (events: ScreenInputEvent[]) => {
+    for (const event of events) {
+      const key = holdKey(event);
+      if (key && !isPress(event)) held.delete(key);
     }
   };
   server.handle(inputRpc, async (request) => {
@@ -83,13 +90,14 @@ export default function contribute(server: PluginServerContext) {
       });
       if (releases.length > 0) {
         await (await inputHelper()).request("input", { ...request, events: releases });
-        track(releases);
+        trackReleases(releases);
       }
       if (releases.length === request.events.length) return { handled: releases.length };
       throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
     }
+    trackPresses(request.events);
     const result = await (await inputHelper()).request<{ handled: number; pointerDisplay?: number }>("input", request);
-    track(request.events);
+    trackReleases(request.events);
     return result;
   });
   // Read on the input helper so it runs after any copy shortcut queued before it.
