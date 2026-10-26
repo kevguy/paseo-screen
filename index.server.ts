@@ -1,7 +1,8 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { createHeldTracker } from "./server/held";
 import { HelperProcess, linuxBackend, NO_SESSION } from "./server/helper";
 import { readControlPaused, readPreferredDisplay, writeControlPaused, writePreferredDisplay } from "./server/preferences";
-import { chooseDisplayRpc, clipboardRpc, controlStateRpc, setControlPausedRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenInputEvent, type ScreenStatus } from "./shared/rpc";
+import { chooseDisplayRpc, clipboardRpc, controlStateRpc, setControlPausedRpc, frameRpc, inputRpc, requestPermissionsRpc, statusRpc, type ScreenStatus } from "./shared/rpc";
 
 export default function contribute(server: PluginServerContext) {
   const log = (message: string) => console.error(`[paseo-screen] ${message}`);
@@ -56,48 +57,20 @@ export default function contribute(server: PluginServerContext) {
   async function assertControlAllowed(): Promise<void> {
     if (await readControlPaused()) throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
   }
-  // Mouse buttons and keys the host has been told are down. While paused, only their releases go
-  // through, so a pause mid-drag or mid-keypress cannot leave them held, and releases of presses the
-  // host never saw (which would still move its pointer) are dropped.
-  const held = new Set<string>();
-  const holdKey = (event: ScreenInputEvent): string | null =>
-    event.type === "down" || event.type === "up"
-      ? `button:${event.button}`
-      : event.type === "key" && event.down !== undefined
-        ? `key:${event.keyCode ?? event.char}`
-        : null;
-  const isPress = (event: ScreenInputEvent) => event.type === "down" || (event.type === "key" && event.down === true);
-  // Presses count as held before the request, since a timed-out request may still reach the host;
-  // releases only clear them once the host has confirmed.
-  const trackPresses = (events: ScreenInputEvent[]) => {
-    for (const event of events) {
-      const key = holdKey(event);
-      if (key && isPress(event)) held.add(key);
-    }
-  };
-  const trackReleases = (events: ScreenInputEvent[]) => {
-    for (const event of events) {
-      const key = holdKey(event);
-      if (key && !isPress(event)) held.delete(key);
-    }
-  };
+  const held = createHeldTracker();
   server.handle(inputRpc, async (request) => {
     if (await readControlPaused()) {
-      const releases = request.events.filter((event) => {
-        const key = holdKey(event);
-        const release = event.type === "up" || (event.type === "key" && event.down === false);
-        return release && key !== null && held.has(key);
-      });
+      const releases = held.heldReleases(request.events);
       if (releases.length > 0) {
         await (await inputHelper()).request("input", { ...request, events: releases });
-        trackReleases(releases);
+        held.confirmed(releases);
       }
       if (releases.length === request.events.length) return { handled: releases.length };
       throw new Error("Remote control is paused on this host. Resume it from the Screen controls.");
     }
-    trackPresses(request.events);
+    held.beforeSend(request.events);
     const result = await (await inputHelper()).request<{ handled: number; pointerDisplay?: number }>("input", request);
-    trackReleases(request.events);
+    held.confirmed(request.events);
     return result;
   });
   // Read on the input helper so it runs after any copy shortcut queued before it.

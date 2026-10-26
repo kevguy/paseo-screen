@@ -41,7 +41,7 @@
   "scripts": {
     "embed": "node scripts/embed-helper.mjs",
     "typecheck": "node scripts/embed-helper.mjs && tsc --noEmit",
-    "test": "node scripts/geometry-check.mjs"
+    "test": "node scripts/geometry-check.mjs && node scripts/held-check.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.12.0",
