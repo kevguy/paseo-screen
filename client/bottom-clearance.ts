@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, Keyboard, NativeModules, Platform, TurboModuleRegistry, type View } from "react-native";
 
 /**
- * The bottom inset Android reports for the gesture bar or navigation buttons, read from the safe-area
- * native module the host app ships. Plugin screens get no insets from the host, and on Android's
- * edge-to-edge layout they draw underneath those bars.
+ * The navigation (gesture) bar inset, read live from the safe-area native module the
+ * host app ships. Plugin screens get no insets from the host, and on Android's edge-to-edge layout they
+ * draw underneath those bars.
  */
-function systemBottomInset(): number {
+function systemInsets(): { bottom: number } {
   try {
     const module = (TurboModuleRegistry.get?.("RNCSafeAreaContext") ?? NativeModules.RNCSafeAreaContext) as
       | { getConstants?(): unknown; initialWindowMetrics?: unknown }
@@ -14,12 +14,12 @@ function systemBottomInset(): number {
       | undefined;
     const constants = (module?.getConstants?.() ?? module) as { initialWindowMetrics?: { insets?: { bottom?: unknown } } } | undefined;
     const bottom = constants?.initialWindowMetrics?.insets?.bottom;
-    if (typeof bottom === "number" && bottom >= 0) return bottom;
+    if (typeof bottom === "number" && bottom >= 0) return { bottom };
   } catch {
-    // Fall through to the default below.
+    // Fall through to the defaults below.
   }
-  // Roughly a gesture bar; three-button navigation is taller, but this keeps the key bar clear of the pill.
-  return 24;
+  // Roughly a gesture bar; three-button navigation is taller.
+  return { bottom: 24 };
 }
 
 /**
@@ -35,11 +35,21 @@ export function useBottomClearance() {
   const measure = useCallback(() => {
     if (Platform.OS === "web" || !ref.current) return;
     ref.current.measureInWindow((_x, y, _width, height) => {
-      // `height` includes the padding currently applied, so this is where the content would end without it.
-      const windowHeight = Dimensions.get("window").height;
-      const bottom = y + height;
-      const covered = keyboardHeight.current > 0 ? keyboardHeight.current : Platform.OS === "android" ? systemBottomInset() : 0;
-      const next = Math.max(0, Math.round(bottom - (windowHeight - covered)));
+      let next: number;
+      if (Platform.OS === "android") {
+        // On Android's edge-to-edge layout, measureInWindow and the screen share coordinates (the view
+        // runs under the status bar), but the reported keyboard height leaves out the navigation bar
+        // beneath it. Measured on a Pixel-class phone: y114 + h883 = screen 997, nav inset 24, keyboard
+        // 368, keyboard top at 605 = 997 - 24 - 368.
+        const insets = systemInsets();
+        const screenHeight = Dimensions.get("screen").height;
+        const visibleBottom = screenHeight - insets.bottom - keyboardHeight.current;
+        next = Math.max(0, Math.round(y + height - visibleBottom));
+      } else {
+        // iOS: window coordinates throughout; the keyboard height includes the home indicator area.
+        const windowHeight = Dimensions.get("window").height;
+        next = Math.max(0, Math.round(y + height - (windowHeight - keyboardHeight.current)));
+      }
       setPadding((current) => (Math.abs(current - next) > 1 ? next : current));
     });
   }, []);
