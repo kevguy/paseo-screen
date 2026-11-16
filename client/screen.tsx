@@ -196,7 +196,11 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
           compact={layout.compact}
           hostPlatform={hostPlatform}
           send={send}
-          clipboard={clipboard.supported ? { copyFromHost: clipboard.pull, pasteToHost: () => void pasteLocalClipboard() } : null}
+          clipboard={
+            clipboard.supported
+              ? { copyFromHost: clipboard.pull, pasteToHost: clipboard.canPaste ? () => void pasteLocalClipboard() : null }
+              : null
+          }
         />
       ) : null}
     </View>
@@ -248,7 +252,8 @@ function KeyBar({ styles, compact, hostPlatform, send, clipboard }: {
   compact: boolean;
   hostPlatform: string;
   send(event: ScreenInputEvent): void;
-  clipboard: { copyFromHost(): void; pasteToHost(): void } | null;
+  /** `pasteToHost` is null where this device's clipboard can't be read (phones). */
+  clipboard: { copyFromHost(): void; pasteToHost: (() => void) | null } | null;
 }) {
   const [text, setText] = useState("");
   const key = (keyCode: number, modifiers: ScreenModifier[] = []) => () => send({ type: "key", keyCode, modifiers });
@@ -324,7 +329,7 @@ function KeyBar({ styles, compact, hostPlatform, send, clipboard }: {
       {clipboard ? (
         <>
           <ToolButton styles={styles} label="Copy from host" onPress={clipboard.copyFromHost} />
-          <ToolButton styles={styles} label="Paste to host" onPress={clipboard.pasteToHost} />
+          {clipboard.pasteToHost ? <ToolButton styles={styles} label="Paste to host" onPress={clipboard.pasteToHost} /> : null}
         </>
       ) : null}
       {compact ? (

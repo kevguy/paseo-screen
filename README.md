@@ -11,7 +11,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
 - Live view of the host's screen, sized to your viewer, at roughly 5 to 15 frames per second depending on the network.
 - Mouse and keyboard control: click, double-click, right-click, drag, scroll and type. The host's own mouse, trackpad and keyboard keep working alongside it, and on desktop clients the host's pointer only follows yours once you click into the picture.
 - A key bar for shortcuts your own computer keeps for itself: ⌘Tab, ⌘Space, ⌘W, ⌘Q, switching Spaces (⌃←/⌃→), Mission Control and App windows on a Mac host; Super+Tab, Activities, Apps, Ctrl+W, Alt+F4 and switching workspaces on a Linux host.
-- Two-way text clipboard on desktop and web clients. ⌘V pastes your clipboard on the host, and ⌘C on the host copies back to you. With a Linux host, use Ctrl from a Windows or Linux client; a Mac client's ⌘ works there too.
+- Text clipboard: on phones, **Copy from host** copies the host's clipboard to the phone. Desktop and web clients sync both ways. ⌘V pastes your clipboard on the host, and ⌘C on the host copies back to you. With a Linux host, use Ctrl from a Windows or Linux client; a Mac client's ⌘ works there too.
 - Multiple displays: each one is listed by name, the last choice is remembered, and a drag that leaves the picture continues onto the neighbouring display.
 - Phones: tap to click, long-press to right-click, pinch to zoom, drag to pan, and a Rotate button that turns the picture sideways.
 - Wakes the host's display when you open the viewer, and shows the lock screen if the host is locked so you can type your password to unlock it (except on GNOME Wayland, which stops sharing while locked).
@@ -212,7 +212,7 @@ Waking a sleeping computer remotely needs Wake-on-LAN: usually a wired network c
 - A sleeping computer is offline: Paseo sleeps with it, so no client can reach or wake it until someone wakes it at the machine. See [Keep the host awake](#keep-the-host-awake).
 - The plugin doesn't stop the host from sleeping or locking on its own schedule. Opening the viewer, using the mouse or keyboard on the picture, or the **Wake display** button wakes the display, and you unlock it by typing your password. Touch ID isn't available remotely.
 - Shortcuts your own computer or the Paseo app handle first (⌘Tab, ⌘Space, ⌘W, ⌘Q) need the key bar buttons.
-- Clipboard sync is text only, and only on desktop and web clients.
+- Clipboard sync is text only. Phones can copy from the host but not paste their own clipboard to it (paste into the "Type on the host" box and press Send instead).
 - Keys are sent by physical position, so both computers should use the same keyboard layout.
 - No audio and no file transfer.
 
@@ -221,7 +221,7 @@ Waking a sleeping computer remotely needs Wake-on-LAN: usually a wired network c
 ```bash
 npm install
 npm run typecheck   # also re-embeds helper/main.swift into server/helper-source.generated.ts
-npm test            # rotate/zoom/pan math for the touch viewer
+npm test            # rotate/zoom/pan math for the touch viewer, and held-input tracking while paused
 paseo plugin install "$PWD"           # once, from a checkout
 paseo plugin reload paseo-screen      # after changes
 paseo plugin logs paseo-screen

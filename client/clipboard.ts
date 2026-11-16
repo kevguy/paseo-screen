@@ -1,4 +1,5 @@
 import { useRpc } from "@getpaseo/plugin/client";
+import { copyText } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { clipboardRpc } from "../shared/rpc";
@@ -17,8 +18,15 @@ export async function readLocalClipboard(): Promise<string | null> {
   }
 }
 
+/** Writes text to this device's clipboard: the browser clipboard on web, Paseo's native clipboard on phones. */
+async function writeLocalClipboard(text: string): Promise<void> {
+  if (hasWebClipboard()) await navigator.clipboard!.writeText(text);
+  else await copyText(text);
+}
+
 /**
- * Mirrors host copies into this client's clipboard (web and desktop clients only).
+ * Mirrors host copies into this client's clipboard. Copying from the host works everywhere; reading
+ * this device's clipboard (to paste on the host) only works on web and desktop clients.
  * After a copy shortcut is sent, the host clipboard is checked a few times because apps copy asynchronously.
  */
 export function useHostClipboard(active: boolean) {
@@ -28,7 +36,9 @@ export function useHostClipboard(active: boolean) {
   const known = useRef<number | null>(null);
   const pasted = useRef<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const supported = hasWebClipboard();
+  // Phones can receive the host's clipboard through Paseo; only web and desktop can read their own.
+  const supported = hasWebClipboard() || Platform.OS !== "web";
+  const canPaste = hasWebClipboard();
 
   useEffect(() => {
     if (!active || !supported) return;
@@ -59,7 +69,7 @@ export function useHostClipboard(active: boolean) {
           setMessage("Host clipboard has no text");
           return true;
         }
-        await navigator.clipboard!.writeText(clipboard.text);
+        await writeLocalClipboard(clipboard.text);
         setMessage(`Copied ${clipboard.text.length} characters from host`);
         return true;
       } catch (error) {
@@ -96,5 +106,5 @@ export function useHostClipboard(active: boolean) {
     pasted.current = text;
   }, []);
 
-  return { supported, message, pull: () => void pull(false), afterHostCopy, notePasted, setMessage };
+  return { supported, canPaste, message, pull: () => void pull(false), afterHostCopy, notePasted, setMessage };
 }
