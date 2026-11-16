@@ -7,6 +7,7 @@ import { Platform, Pressable, ScrollView, Text, TextInput, View, type LayoutChan
 import { chooseDisplayRpc, requestPermissionsRpc, statusRpc, type ScreenDisplay, type ScreenInputEvent, type ScreenModifier, type ScreenStatus } from "../shared/rpc";
 import { readLocalClipboard, useHostClipboard } from "./clipboard";
 import { useControlPause } from "./control";
+import { useBottomClearance } from "./bottom-clearance";
 import { FrameImage } from "./frame-image";
 import { fitContent } from "./geometry";
 import { isAppleClient, KEY, keyMapping } from "./keys";
@@ -110,8 +111,11 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
   });
 
 
+  // Keeps the key bar above the phone's keyboard and gesture bar (Paseo draws plugin screens edge to edge on Android).
+  const clearance = useBottomClearance();
+
   return (
-    <View style={styles.screen}>
+    <View ref={clearance.ref} onLayout={clearance.onLayout} style={[styles.screen, { paddingBottom: clearance.paddingBottom }]}>
       <View style={styles.toolbar}>
         <Text style={styles.hostLabel} numberOfLines={1}>{host.label}</Text>
         <ToolButton styles={styles} label={paused ? "Resume" : "Pause"} onPress={() => setPaused(!paused)} />
