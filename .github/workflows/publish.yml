@@ -1,0 +1,36 @@
+name: Publish
+
+# Publishes to npm when a version tag (v1.2.3) is pushed. npm trusts this workflow
+# (trusted publishing), so there is no token, and each version gets provenance.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check npm and the tag
+        run: |
+          # Trusted publishing needs npm 11.5.1 or later; Node 24 bundles it.
+          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); if (a<11||(a===11&&(b<5||(b===5&&c<1)))) { console.error('npm '+process.argv[1]+' is too old for trusted publishing'); process.exit(1); }" "$(npm --version)"
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match package.json version $version"
+            exit 1
+          fi
+      # No dependency install scripts in a job that can publish. The package's own prepack still runs.
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm publish --access public
