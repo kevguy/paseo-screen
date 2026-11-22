@@ -1,10 +1,20 @@
 # Host screen for Paseo
 
+See and control the screen of the computer running your Paseo daemon from any paired Paseo client, phone included.
+
+```sh
+paseo plugin add npm:@kevlai22/paseo-screen
+```
+
+On the Paseo plugin directory: [paseo.sh/plugins/kevguy/screen](https://paseo.sh/plugins/kevguy/screen)
+
+![Controlling the host Mac from Paseo on a laptop](images/laptop-client.jpg)
+
+## About
+
 A [Paseo](https://paseo.sh) plugin that lets you see and control the screen of the Mac or Linux computer (or, experimentally, Windows PC) running your Paseo daemon, from any paired Paseo client: the desktop app, the web app or your phone. Think of a small TeamViewer that rides on the Paseo connection you already have, relay included, so there is no port forwarding, VPN, VNC or extra account.
 
 It was built for the moments when an agent on a remote machine needs a human: watching a Playwright run, clicking through a permission dialog, or checking what is actually on screen.
-
-![Controlling the host Mac from Paseo on a laptop](images/laptop-client.jpg)
 
 ## Features
 
