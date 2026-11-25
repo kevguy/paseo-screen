@@ -211,7 +211,7 @@ Waking a sleeping computer remotely needs Wake-on-LAN: usually a wired network c
 
 ## Limitations
 
-- Mac hosts, Windows 10 and 11 hosts, and Linux hosts on Wayland or X11 are supported. Windows support has been tested on one PC so far. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
+- Mac hosts, Windows 10 and 11 hosts, and Linux hosts on Wayland or X11 are supported. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
 - On GNOME Wayland, locking the screen ends sharing, so a locked host has to be unlocked at the machine. Sharing resumes once it is unlocked. See [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
 - On Wayland, characters the host's keyboard layout lacks (✓, emoji, é on a US layout) cannot be typed; the desktop drops them. Paste them instead (⌘V or Ctrl+V), which works for any text.
 - On GNOME with display scaling, the pointer is placed with an absolute move near the corner followed by a relative move, because GNOME reads the portal's absolute positions as physical pixels. Other Wayland desktops get plain absolute moves.
