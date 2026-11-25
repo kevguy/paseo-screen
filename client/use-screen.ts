@@ -1,7 +1,8 @@
 import { useRpc } from "@getpaseo/plugin/client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AppState, PixelRatio } from "react-native";
-import { frameRpc, inputRpc, type ScreenDisplay, type ScreenInputEvent } from "../shared/rpc";
+import { frameRpc, inputRpc, type ScreenDisplay } from "../shared/rpc";
+import { createInputQueue } from "./input-queue";
 
 export interface Quality {
   label: string;
@@ -142,68 +143,22 @@ export function useFrames(requested: boolean, displayId: number | undefined, qua
   return { ...state, wake };
 }
 
-/**
- * Queues input and sends it in order, one request at a time.
- * Consecutive moves collapse to the latest and consecutive scrolls add up, so a slow link never builds a backlog.
- */
+/** This viewer's input to `hostId`, in order. See createInputQueue for what happens when the viewer closes. */
 export function useInputQueue(
+  hostId: string,
   displayId: number | undefined,
   onError: (message: string | null) => void,
   /** Called when a drag ends on a different display than the one being viewed. */
   onPointerDisplay: (display: number) => void,
 ) {
-  const onPointerDisplayRef = useRef(onPointerDisplay);
-  onPointerDisplayRef.current = onPointerDisplay;
   const input = useRpc(inputRpc);
-  const inputRef = useRef(input);
-  inputRef.current = input;
-  const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-  const displayRef = useRef(displayId);
-  displayRef.current = displayId;
-  const queue = useRef<ScreenInputEvent[]>([]);
-  const sending = useRef(false);
-
-  const flush = useCallback(async () => {
-    if (sending.current) return;
-    sending.current = true;
-    try {
-      while (queue.current.length > 0) {
-        // The RPC accepts at most 200 events per call. A batch also ends after a text event, so each
-        // text chunk gets its own request and timeout (a Linux host may type it slowly).
-        const firstText = queue.current.findIndex((event) => event.type === "text");
-        const events = queue.current.splice(0, firstText >= 0 ? Math.min(firstText + 1, 200) : 200);
-        try {
-          const requested = displayRef.current;
-          const result = await inputRef.current({ display: requested, events });
-          // A batch that went through means any earlier error (such as "paused") no longer applies.
-          onErrorRef.current(null);
-          const endedDrag = events.some((event) => event.type === "up");
-          if (endedDrag && result.pointerDisplay !== undefined && result.pointerDisplay !== requested) {
-            onPointerDisplayRef.current(result.pointerDisplay);
-          }
-        } catch (error) {
-          onErrorRef.current(error instanceof Error ? error.message : String(error));
-        }
-      }
-    } finally {
-      sending.current = false;
-    }
-  }, []);
-
-  return useCallback(
-    (event: ScreenInputEvent) => {
-      const last = queue.current[queue.current.length - 1];
-      if (event.type === "move" && last?.type === "move") {
-        queue.current[queue.current.length - 1] = event;
-      } else if (event.type === "scroll" && last?.type === "scroll") {
-        const clamp = (value: number) => Math.max(-10_000, Math.min(10_000, value));
-        queue.current[queue.current.length - 1] = { ...event, dx: clamp(last.dx + event.dx), dy: clamp(last.dy + event.dy) };
-      } else {
-        queue.current.push(event);
-      }
-      void flush();
-    },
-    [flush],
-  );
+  const [queue] = useState(() => createInputQueue(hostId));
+  queue.update({ call: input, display: displayId, onError, onPointerDisplay });
+  // A layout effect, so the queue is closed before anything else can run once the viewer is gone.
+  // Other cleanups run after it; the releases they send still go out.
+  useLayoutEffect(() => {
+    queue.open();
+    return () => queue.close();
+  }, [queue]);
+  return queue.send;
 }

@@ -41,15 +41,17 @@
   "scripts": {
     "embed": "node scripts/embed-helper.mjs",
     "typecheck": "node scripts/embed-helper.mjs && tsc --noEmit",
-    "test": "node scripts/geometry-check.mjs && node scripts/held-check.mjs"
+    "test": "node scripts/geometry-check.mjs && node scripts/held-check.mjs && node scripts/switch-check.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.12.0",
     "@tanstack/react-query": "^5.90.11",
     "@types/node": "^20.19.43",
     "@types/react": "~19.2.0",
+    "esbuild": "^0.28.2",
     "react": "19.1.0",
     "react-native": "0.81.5",
+    "react-test-renderer": "19.1.0",
     "typescript": "^5.9.3",
     "zod": "^4.4.3"
   },

@@ -1,6 +1,6 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { copyText } from "@getpaseo/plugin/client/react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { clipboardRpc } from "../shared/rpc";
 
@@ -54,12 +54,22 @@ export function useHostClipboard(active: boolean) {
     return () => clearTimeout(timer);
   }, [message]);
 
+  // Once the viewer closed or switched host, a reply still on its way must not land on this device's clipboard.
+  const open = useRef(true);
+  useLayoutEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
+
   /** Copies the host clipboard here. With `onlyIfChanged`, skips it unless something on the host copied since the last check. */
   const pull = useCallback(
     async (onlyIfChanged: boolean): Promise<boolean> => {
       if (!supported) return false;
       try {
         const clipboard = await readRef.current({});
+        if (!open.current) return true;
         if (onlyIfChanged && clipboard.changeCount === known.current) return false;
         known.current = clipboard.changeCount;
         // A change that is only our own paste landing is not a host copy; keep waiting for the real one.
