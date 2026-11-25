@@ -17,7 +17,12 @@ import { useWebInput } from "./web-input";
 
 const isWeb = Platform.OS === "web";
 
-export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
+/** One viewer per host: switching host starts a new one, so nothing carries over from the host that was left. */
+export function RemoteScreen(props: PluginScreenProps) {
+  return <HostViewer key={props.host.id} {...props} />;
+}
+
+function HostViewer({ theme, layout, host }: PluginScreenProps) {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const fetchStatus = useRpc(statusRpc);
   const status = useQuery({ queryKey: ["paseo-screen", "status"], queryFn: () => fetchStatus({}), refetchInterval: 5000 });
@@ -78,7 +83,7 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
     if (frameAspect) setAspect(frameAspect);
   }, [frameAspect]);
   // After a drag carries the pointer onto another display, show that display.
-  const send = useInputQueue(displayId, setInputError, chooseDisplay);
+  const send = useInputQueue(host.id, displayId, setInputError, chooseDisplay);
   const hostControl = useControlPause(host.id);
   // A "paused" input error is stale once control resumes.
   useEffect(() => {

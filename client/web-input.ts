@@ -102,8 +102,16 @@ export function useWebInput(
     const onFocus = () => {
       focused = true;
     };
+    // Keys the host was told are down. Their key-ups only reach the picture while it has focus.
+    const heldKeys = new Set<number>();
+    const releaseKeys = () => {
+      // No modifiers: the host presses those around one event, and a release needs none.
+      for (const keyCode of heldKeys) send({ type: "key", keyCode, down: false, modifiers: [] });
+      heldKeys.clear();
+    };
     const onBlur = () => {
       focused = false;
+      releaseKeys();
     };
     const onElementMouseMove = (event: DomMouseEvent) => {
       if (pressed === 0 && focused) send({ type: "move", ...at(event) });
@@ -125,10 +133,7 @@ export function useWebInput(
     // clipboard, which is put on the host clipboard and pasted there. If no paste event arrives, fall back.
     let pasteTimer: ReturnType<typeof setTimeout> | undefined;
     let pasteShift = false;
-    const cmdTapped = new Set<string>();
     const onKey = (down: boolean) => (event: DomKeyboardEvent) => {
-      // A key pressed again without Cmd is a normal press, even if its last Cmd press never sent a keyup.
-      if (down && !event.metaKey) cmdTapped.delete(event.code);
       if (mapping.shortcut(event) && event.code === "KeyV") {
         if (down && !event.repeat) {
           clearTimeout(pasteTimer);
@@ -148,10 +153,13 @@ export function useWebInput(
         if (down) send({ type: "key", keyCode, modifiers: modifiersOf(event, mapping) });
       } else if (down && event.metaKey) {
         // Mac browsers send no keyup for a key released while Cmd is held, so a Cmd shortcut is
-        // sent as one press-and-release and its keyup, if one comes, is dropped.
-        cmdTapped.add(event.code);
+        // sent as one press-and-release. It is never held, so its keyup, if one comes, is dropped.
         send({ type: "key", keyCode, modifiers: modifiersOf(event, mapping) });
-      } else if (down || !cmdTapped.delete(event.code)) {
+      } else if (down) {
+        heldKeys.add(keyCode);
+        send({ type: "key", keyCode, down, modifiers: modifiersOf(event, mapping) });
+      } else if (heldKeys.delete(keyCode)) {
+        // Only a key that is down is released, and only once.
         send({ type: "key", keyCode, down, modifiers: modifiersOf(event, mapping) });
       }
       if (down && mapping.shortcut(event) && (event.code === "KeyC" || event.code === "KeyX")) handlersRef.current.onHostCopy();
@@ -186,7 +194,8 @@ export function useWebInput(
     for (const [type, listener] of documentListeners) doc.addEventListener(type, listener);
     return () => {
       clearTimeout(pasteTimer);
-      // Leaving the viewer mid-drag must not leave the host's mouse button held down.
+      // Leaving the viewer mid-press must not leave the host's keys or mouse button held down.
+      releaseKeys();
       if (pressed > 0) send({ type: "up", ...lastPoint, button: lastButton });
       for (const [type, listener] of listeners) element.removeEventListener(type, listener);
       for (const [type, listener] of documentListeners) doc.removeEventListener(type, listener);

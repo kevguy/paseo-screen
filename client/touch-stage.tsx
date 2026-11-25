@@ -50,6 +50,15 @@ export function TouchStage({ uri, stage, content, rotated, controlling, send, on
   const gesture = useRef<Gesture>({ mode: "idle" });
   const lastTap = useRef<{ at: number; x: number; y: number; point: { x: number; y: number } } | null>(null);
 
+  // A long press must not click after the viewer closed or switched host.
+  useEffect(
+    () => () => {
+      if (gesture.current.mode === "tap") clearTimeout(gesture.current.longPress);
+      gesture.current = { mode: "done" };
+    },
+    [],
+  );
+
   const responder = useMemo(() => {
     const endTap = () => {
       if (gesture.current.mode === "tap") clearTimeout(gesture.current.longPress);
