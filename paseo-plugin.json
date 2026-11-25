@@ -1,7 +1,7 @@
 {
   "id": "paseo-screen",
   "name": "Host screen",
-  "description": "See and control the host Mac or Linux computer's screen, mouse, keyboard and text clipboard from any paired Paseo client, over the existing Paseo connection. Windows hosts are experimental.",
+  "description": "See and control the host Mac, Windows or Linux computer's screen, mouse, keyboard and text clipboard from any paired Paseo client, over the existing Paseo connection.",
   "icon": "assets/icon.png",
   "media": [
     "images/laptop-client.jpg",

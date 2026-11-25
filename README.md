@@ -12,7 +12,7 @@ On the Paseo plugin directory: [paseo.sh/plugins/kevguy/screen](https://paseo.sh
 
 ## About
 
-A [Paseo](https://paseo.sh) plugin that lets you see and control the screen of the Mac or Linux computer (or, experimentally, Windows PC) running your Paseo daemon, from any paired Paseo client: the desktop app, the web app or your phone. Think of a small TeamViewer that rides on the Paseo connection you already have, relay included, so there is no port forwarding, VPN, VNC or extra account.
+A [Paseo](https://paseo.sh) plugin that lets you see and control the screen of the Mac, Windows or Linux computer running your Paseo daemon, from any paired Paseo client: the desktop app, the web app or your phone. Think of a small TeamViewer that rides on the Paseo connection you already have, relay included, so there is no port forwarding, VPN, VNC or extra account.
 
 It was built for the moments when an agent on a remote machine needs a human: watching a Playwright run, clicking through a permission dialog, or checking what is actually on screen.
 
@@ -36,7 +36,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
 
 - A Mac host running macOS 14 or later, with the Xcode command line tools (`xcode-select --install`). The native helper is compiled with `swiftc` the first time it is used.
 - Or a Linux host with a desktop session, either Wayland (GNOME, KDE and other desktops with xdg-desktop-portal's RemoteDesktop and ScreenCast portals) or X11, with a C compiler and the development packages for that session (see Install, step 3). The native helper is compiled with `cc` the first time it is used.
-- Or, **experimentally**, a Windows 10 or 11 host. The native helper is compiled with the .NET Framework's `csc.exe`, which Windows includes, so nothing needs installing. Windows support has been tested on one Windows PC so far.
+- Or a Windows 10 or 11 host. The native helper is compiled with the .NET Framework's `csc.exe`, which Windows includes, so nothing needs installing.
 - Paseo 0.12 or later, with plugins enabled on the host.
 - Any Paseo client paired with that host.
 
@@ -83,7 +83,7 @@ It was built for the moments when an agent on a remote machine needs a human: wa
      ```
 
      Linux hosts on X11 need no permissions. Paseo has to run inside the desktop session, which is the case for the Paseo desktop app, so the helper can reach the display. If the daemon runs some other way, see [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
-   - **Windows (experimental):** nothing to install; the plugin compiles its helper with Windows' built-in compiler. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Set the PC not to sleep while plugged in (see [Keep the host awake](#keep-the-host-awake)), then leave it plugged in; closing a laptop's lid should be fine as long as Windows is set not to sleep when the lid closes. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
+   - **Windows:** nothing to install; the plugin compiles its helper with Windows' built-in compiler. Paseo has to run in the signed-in desktop session, as the Paseo desktop app does. Set the PC not to sleep while plugged in (see [Keep the host awake](#keep-the-host-awake)), then leave it plugged in; closing a laptop's lid should be fine as long as Windows is set not to sleep when the lid closes. Windows doesn't let normal apps see or control the lock screen, sign-in screen or UAC prompts, so those have to be handled at the PC, and apps running as administrator ignore input from the plugin.
 4. In any Paseo client, open **Screen · _host name_** from the sidebar, or search "host screen" in the command center.
 
 If a permission is missing on a Mac, the viewer says which one and offers a button that shows the macOS prompt on the host. Someone has to be at the host Mac to approve it once.
@@ -188,7 +188,7 @@ Paseo client (laptop, web, phone)                    Host (Paseo daemon)
                                                          Linux on Wayland: desktop portals, PipeWire, libjpeg
 ```
 
-- `helper/main.swift` (macOS), `helper/linux.c` (Linux) and `helper/windows.cs` (Windows, experimental) are small native helpers speaking the same line-delimited JSON. The plugin server embeds all three sources, compiles the one for its platform into `~/Library/Caches/paseo-screen/<hash>/` on macOS, `~/.cache/paseo-screen/<hash>/` on Linux or `%LOCALAPPDATA%\paseo-screen\<hash>\` on Windows, and runs two copies so input never waits behind a frame capture. On Wayland one copy does both, because each process would need its own portal session and approval; it answers frames on a thread of their own.
+- `helper/main.swift` (macOS), `helper/linux.c` (Linux) and `helper/windows.cs` (Windows) are small native helpers speaking the same line-delimited JSON. The plugin server embeds all three sources, compiles the one for its platform into `~/Library/Caches/paseo-screen/<hash>/` on macOS, `~/.cache/paseo-screen/<hash>/` on Linux or `%LOCALAPPDATA%\paseo-screen\<hash>\` on Windows, and runs two copies so input never waits behind a frame capture. On Wayland one copy does both, because each process would need its own portal session and approval; it answers frames on a thread of their own.
 - The Windows helper captures each monitor with GDI and sends input with `SendInput`. Keys are pressed by scan code, so they match the physical positions the other hosts use; typed text arrives as Unicode, and a Mac client's ⌘ is sent as Ctrl.
 - Input carries macOS key codes, which name physical key positions. The Linux helper presses the key in the same position, and treats `cmd` as the Super key. A Mac client's ⌘ is sent as Ctrl to a Linux host, so ⌘C, ⌘V and other shortcuts do what you expect there.
 - macOS grants Screen Recording and Accessibility to Paseo as the responsible app, so rebuilding the helper does not need new permissions.
@@ -211,7 +211,7 @@ Waking a sleeping computer remotely needs Wake-on-LAN: usually a wired network c
 
 ## Limitations
 
-- Mac hosts and Linux hosts on Wayland or X11 are supported. Windows hosts are experimental and have been tested on one PC so far. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
+- Mac hosts, Windows 10 and 11 hosts, and Linux hosts on Wayland or X11 are supported. Windows support has been tested on one PC so far. Any Paseo client can view. Wayland support has been tested on GNOME 50 (Ubuntu 26.04) with one display, including a 4K panel at 200% scaling; multiple displays and other Wayland desktops (KDE, Sway, Hyprland) are untested.
 - On GNOME Wayland, locking the screen ends sharing, so a locked host has to be unlocked at the machine. Sharing resumes once it is unlocked. See [Headless and always-on Linux hosts](#headless-and-always-on-linux-hosts).
 - On Wayland, characters the host's keyboard layout lacks (✓, emoji, é on a US layout) cannot be typed; the desktop drops them. Paste them instead (⌘V or Ctrl+V), which works for any text.
 - On GNOME with display scaling, the pointer is placed with an absolute move near the corner followed by a relative move, because GNOME reads the portal's absolute positions as physical pixels. Other Wayland desktops get plain absolute moves.

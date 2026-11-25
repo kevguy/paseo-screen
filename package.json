@@ -1,7 +1,7 @@
 {
   "name": "@kevlai22/paseo-screen",
-  "version": "0.5.1",
-  "description": "See and control the Paseo host's screen (macOS, Linux on Wayland or X11, experimental Windows) from any paired Paseo client, over the existing Paseo connection.",
+  "version": "0.5.2",
+  "description": "See and control the Paseo host's screen (macOS, Windows, Linux on Wayland or X11) from any paired Paseo client, over the existing Paseo connection.",
   "type": "module",
   "license": "MIT",
   "author": "Kevin Lai",

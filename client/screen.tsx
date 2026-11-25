@@ -153,9 +153,6 @@ export function RemoteScreen({ theme, layout, host }: PluginScreenProps) {
           <ToolButton styles={styles} label={hostControl.changing ? "Resuming…" : "▶ Resume control"} onPress={() => hostControl.setPaused(false)} />
         </View>
       ) : null}
-      {windowsHost ? (
-        <Text style={styles.meta}>Windows hosts are experimental. Please report anything that misbehaves.</Text>
-      ) : null}
       {frames.locked && !frames.asleep ? (
         <View style={styles.banner}>
           <Text style={styles.bannerText}>
